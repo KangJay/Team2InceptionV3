@@ -5,7 +5,7 @@ This Microsoft Azure ML sample will take you through the steps of training an im
   
 
 ## What is InceptionV3?
-![Alt text](https://paperswithcode.com/media/methods/inceptionv3onc--oview_vjAbOfw.png)
+![Alt text](https://images.deepai.org/glossary-terms/a36d6639cf694722b5cc814528ec0ef6/inception.png)
  Source: [Rethinking the Inception Architecture for Computer Vision](https://arxiv.org/abs/1512.00567v3)
 The primary focus of this architecture is to utilize fewer computational resources in order to develop models quicker. InceptionV3 is a convolutional neural network based off the [InceptionV1 Architecture](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/43022.pdf), InceptionV3 improves upon V1's approach by...
 1. Factorizing convolutions into multiple smaller ones.
