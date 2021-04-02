@@ -31,6 +31,8 @@ from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 import warnings
 warnings.filterwarnings("ignore")
 
+import os
+
 model_d = DenseNet121(weights="imagenet", include_top=False,
                     input_shape=(128,128,3))
 
@@ -46,4 +48,44 @@ x= Dropout(0.5)(x)
 
 preds=Dense(8,activation='softmax')(x) #FC-layer
 model=Model(inputs=model_d.input,outputs=preds)
-model.summary()
+
+# Freeze layers except last 8
+for layer in model.layers[:-8]:
+    layer.trainable=False
+    
+for layer in model.layers[-8:]:
+    layer.trainable=True
+
+model.compile(optimizer='Adam',loss='categorical_crossentropy',metrics=['accuracy'])
+# Should have a much smaller number of params. try model.summary()
+
+# Get labels and data
+data, labels = [], []
+subpath = "./tiny-imagenet-200/train/"
+"""
+def iterate_dirs(path, subdir):
+    for filename in os.listdir(path):
+        filePath = path + "/" + filename
+        if (os.path.isdir(filePath)):
+            print(filePath)
+            tempSubdir = ""
+            if subdir: tempSubdir = subdir + "/" + filename
+            else: tempSubdir = filename
+            iterate_dirs(filePath, tempSubdir)
+"""
+# Helper method for recursive 
+def iterate_dirs():
+    image_labels = os.listdir(os.getcwd() + "/tiny-imagenet-200/train")
+    random.shuffle(image_labels) # shuffle to avoid possible bias in structure alone
+    for img in image_labels:
+        images = sorted(os.listdir(subpath + img + "/images/"))
+        #print(images)
+        for image in images:
+            image = cv2.imread(f"{subpath}/{img}/images/{image}")
+            image = cv2.resize(image, (128, 128))
+            image = img_to_array(image)
+            data.append(image)
+            labels.append(img)
+
+if __name__ == "__main__":
+    iterate_dirs()
