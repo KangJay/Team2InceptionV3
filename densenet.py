@@ -13,10 +13,12 @@ import cv2
 import math
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
-from sklearn.preprocessing import LabelBinarizer
+#from sklearn.preprocessing import LabelBinarizer
 
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+
+from keras.utils import Sequence, to_categorical
 
 from tensorflow.keras.layers import Dense,GlobalAveragePooling2D,Convolution2D,BatchNormalization
 from tensorflow.keras.layers import Flatten,MaxPooling2D,Dropout
@@ -35,6 +37,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import os
+
 
 model_d = DenseNet121(weights="imagenet", include_top=False,
                     input_shape=(128,128,3))
@@ -76,7 +79,37 @@ def iterate_dirs(path, subdir):
             else: tempSubdir = filename
             iterate_dirs(filePath, tempSubdir)
 """
-# Helper method for recursive 
+# Taken from https://gist.github.com/mrrajatgarg
+class Data_Generator(keras.utils.Sequence):
+
+    def __init__(self, file_names, labels, batch_size):
+        self.file_names = file_names
+        self.labels = labels
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return(np.ceil(len(self.file_names) / float(self.batch_size))).astype(np.int)
+
+    """
+    takes slices of the lists depending on batch size. 
+    if batch size is 32, then the first iteration would be...
+    starting index = 0 * 32
+    ending index = 1 * 32, so it'd take elements 0 to 31 (inclusive)
+    then the next batch would have idx = 1, so 
+    1 * 32 = 32 = starting index
+    2 * 32 = 64 = ending index (not inclusive) and would take elements 32 to 63
+    next and on and on. 
+    """
+    def __getitem(self, idx, img_dims=(80, 80, 3)):
+        batch_x = self.file_names[idx * self.batch_size: (idx+1) * self.batch_size]
+        batch_y = self.labels[idx * self.batch_size: (idx+1) * self.batch_size]
+        
+        return np.array([
+            resize(imread(file_name), imd_dims)
+            for file_name in batch_x])/255.0, np.array(batch_y)
+
+
+    # Helper method for recursive 
 def iterate_dirs():
     image_paths, labels = np.empty(0), np.empty(0) 
     image_labels = os.listdir(os.getcwd() + "/tiny-imagenet-200/train")
