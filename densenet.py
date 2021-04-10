@@ -19,7 +19,7 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
 from keras.utils import Sequence, to_categorical
-
+from keras import callbacks
 from tensorflow.keras.layers import Dense,GlobalAveragePooling2D,Convolution2D,BatchNormalization
 from tensorflow.keras.layers import Flatten,MaxPooling2D,Dropout
 from tensorflow.keras.applications import DenseNet121
@@ -38,12 +38,10 @@ warnings.filterwarnings("ignore")
 
 import os
 
-
 model_d = DenseNet121(weights="imagenet", include_top=False,
-                    input_shape=(128,128,3))
+                    input_shape=(None, None, 3)) # (None, None, 3) = Can accept any input size
 
 x=model_d.output
-
 x= GlobalAveragePooling2D()(x)
 x= BatchNormalization()(x)
 x= Dropout(0.5)(x)
@@ -62,81 +60,46 @@ for layer in model.layers[:-8]:
 for layer in model.layers[-8:]:
     layer.trainable=True
 
-model.compile(optimizer='Adam',loss='categorical_crossentropy',metrics=['accuracy'])
-# Should have a much smaller number of params. try model.summary()
+model.compile(optimizer='Adam',loss='categorical_crossentropy',
+              metrics=['accuracy'])
 
-# Get labels and data
-data, labels = [], []
-subpath = "./tiny-imagenet-200/train/"
-"""
-def iterate_dirs(path, subdir):
-    for filename in os.listdir(path):
-        filePath = path + "/" + filename
-        if (os.path.isdir(filePath)):
-            print(filePath)
-            tempSubdir = ""
-            if subdir: tempSubdir = subdir + "/" + filename
-            else: tempSubdir = filename
-            iterate_dirs(filePath, tempSubdir)
-"""
-# Taken from https://gist.github.com/mrrajatgarg
-class Data_Generator(keras.utils.Sequence):
-
-    def __init__(self, file_names, labels, batch_size):
-        self.file_names = file_names
-        self.labels = labels
-        self.batch_size = batch_size
-
-    def __len__(self):
-        return(np.ceil(len(self.file_names) / float(self.batch_size))).astype(np.int)
-
-    """
-    takes slices of the lists depending on batch size. 
-    if batch size is 32, then the first iteration would be...
-    starting index = 0 * 32
-    ending index = 1 * 32, so it'd take elements 0 to 31 (inclusive)
-    then the next batch would have idx = 1, so 
-    1 * 32 = 32 = starting index
-    2 * 32 = 64 = ending index (not inclusive) and would take elements 32 to 63
-    next and on and on. 
-    """
-    def __getitem(self, idx, img_dims=(80, 80, 3)):
-        batch_x = self.file_names[idx * self.batch_size: (idx+1) * self.batch_size]
-        batch_y = self.labels[idx * self.batch_size: (idx+1) * self.batch_size]
-        
-        return np.array([
-            resize(imread(file_name), imd_dims)
-            for file_name in batch_x])/255.0, np.array(batch_y)
+# Prepping data
 
 
-    # Helper method for recursive 
-def iterate_dirs():
-    image_paths, labels = np.empty(0), np.empty(0) 
-    image_labels = os.listdir(os.getcwd() + "/tiny-imagenet-200/train")
-    random.shuffle(image_labels) # shuffle to avoid possible bias in structure alone
-    num_class = 0
-    for img in image_labels:
-        images = sorted(os.listdir(subpath + img + "/images/"))
-        #print(len(images))
-        for image in images:
-            image = f"{subpath}{img}/images/{image}"
-            image_paths = np.append(image_paths, image)
-            labels = np.append(labels, img)
-            #print(labels)
-            """for image in images:
-            image = cv2.imread(f"{subpath}{img}/images/{image}")
-            image = cv2.resize(image, (128, 128))
-            image = img_to_array(image)
-            data.append(image)
-            labels.append(img)"""
-        print(f"Done with {img}. File {num_class}/200")
-        num_class += 1
-    #print(image_paths.shape)
-    #print(labels.shape)
-    from sklearn.utils import shuffle
-    images_shuffled, labels_shuffled = shuffle(image_paths, labels)
-    save('./binary-files/images.npy', images_shuffled)
-    save('./binary-files/labels.npy', labels_shuffled)
+# Constants
+target_img_size=(96, 96) # Can change
+seed = 0
 
-if __name__ == "__main__":
-    iterate_dirs()
+#1, 2, 3, 4 are temporary column names. These aren't needed and are dropped.
+val_data = pd.read_csv("./tiny-imagenet-200/val/val_annotations.txt", sep="\t",
+                  header=None, names=['file', 'class', '1', '2', '3', '4'])
+val_data.drop(['1', '2', '3', '4'], axis=1, inplace=True)
+
+# Data Generators
+train_datagen = ImageDataGenerator(rescale=1.0/255) # Normalizing images (RGB values = 0 to 255)
+valid_datagen = ImageDataGenerator(rescale=1.0/255)
+
+#Keep seed as 0 so we can consistently compare
+train_data_generator = train_datagen.flow_from_directory("./tiny-imagenet-200/train/",
+                            target_size=target_img_size, color_mode="rgb", 
+                            batch_size=64, class_mode="categorical",
+                            shuffle=True, seed=seed)
+validation_data_generator = valid_datagen.flow_from_dataframe(val_data,
+                                directory="./tiny-imagenet-200/val/images", 
+                                x_col="file", y_col="class",
+                                target_size=target_img_size, color_mode="rgb",
+                                class_mode="categorical", batch_size=64,
+                                shuffle=True, seed=seed)
+
+earlystop = callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5,
+                                    restore_best_weights=True)
+# earlystop = callbacks.ReduceLROnPlateau(mode="min")
+
+model.fit_generator(train_data_generator, epochs=15, steps_per_epoch=200,
+                    validation_steps=200,
+                    validation_data=validation_data_generator, verbose=1,
+                    callbacks=[earlystop])
+model.save("./models/first_model.h5")
+
+
+
