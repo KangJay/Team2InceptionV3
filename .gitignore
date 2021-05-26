@@ -1,0 +1,10 @@
+
+
+
+# Ignore dataset. ~200 MB. Massive for git upload
+tiny-imagenet-200
+
+# OS Generated Files
+.DS_Store
+.DS_store?
+._*
