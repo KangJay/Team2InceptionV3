@@ -24,12 +24,17 @@ RGB_channels = 3
 # Authentication issue...
 from azureml.core.authentication import InteractiveLoginAuthentication
 
-interactive_auth = InteractiveLoginAuthentication(tenant_id="72f988bf-86f1-41af-91ab-2d7cd011db47")
-# Get default workspace
+interactive_auth = InteractiveLoginAuthentication(tenant_id="<YOUR TENANT ID HERE>")
+""" 
+Get default workspace. Interactive auth was having trouble for accounts that have more than one subscription.
+E.g. for us that have a UW one and the Microsoft Operationalization one. It would default to UW and not authenticate 
+the compute instance to run the pipeline. Also don't have access to IAM controlls so we cannot add a managed identity
+to the compute instances
+"""
 ws = Workspace.get(
-    subscription_id="92c76a2f-0e1c-4216-b65e-abf7a3f34c1e",
-    resource_group="azureml_uw_imageclassification",
-    name="tiny-image-net",
+    subscription_id="<YOUR SUBSCRIPTION ID HERE>",
+    resource_group="<RESOURCE GROUP HERE>",
+    name="<WORKSPACE NAME>",
     auth=interactive_auth
 )
 
@@ -103,7 +108,7 @@ if __name__ == "__main__":
     dataset.download(target_path=args.data_path, overwrite=False)
     print("Done downloading.\n")
     """
-    os.makedirs(f"./{args.save_dest}", exist_ok=True)
+    #os.makedirs(f"/{args.save_dest}", exist_ok=True)
     inception_base = InceptionV3(weights='imagenet', include_top=False, 
         input_shape=(None, None, 3))
     x = inception_base.output
